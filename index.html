@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Minimal Converter</title>
+    <style>
+        /* --- 1. MINIMALIST OLED STYLING --- */
+        :root {
+            --bg-color: #000000;
+            --text-primary: #FFFFFF;
+            --text-secondary: #555555;
+            --accent: #FF9500; /* Calculator Orange for operators */
+            --key-bg: #1C1C1C;
+            --key-active: #333333;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden; /* No scrolling */
+        }
+
+        /* --- 2. LAYOUT --- */
+        /* Top: Result Display */
+        #display-area {
+            flex: 1.5;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-end;
+            padding: 20px;
+            text-align: right;
+        }
+
+        #result-val { font-size: 64px; font-weight: 300; line-height: 1; }
+        #result-unit { font-size: 18px; color: var(--text-secondary); margin-top: 5px; letter-spacing: 2px; text-transform: uppercase;}
+
+        /* Middle: Input & Toggles */
+        #input-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: flex-end;
+            padding: 0 20px 20px 20px;
+            border-bottom: 1px solid #222;
+        }
+
+        #input-val { font-size: 32px; color: #AAA; }
+        
+        /* The Unit Toggles Row */
+        .toggles {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .toggle-btn {
+            background: none;
+            border: 1px solid #333;
+            color: #555;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .toggle-btn.active {
+            border-color: #FFF;
+            color: #FFF;
+        }
+
+        /* Bottom: Keypad Grid */
+        #keypad {
+            flex: 2.5;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 1px;
+            background-color: #000;
+        }
+
+        button.key {
+            background-color: var(--key-bg);
+            border: none;
+            color: #FFF;
+            font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none; /* Prevent text selection on tap */
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        button.key:active { background-color: var(--key-active); }
+        button.op { color: var(--accent); font-size: 28px; }
+        button.util { color: #BBB; }
+        
+    </style>
+</head>
+<body>
+
+    <div id="display-area">
+        <div id="result-val">0</div>
+        <div id="result-unit">Centimeters</div>
+    </div>
+
+    <div id="input-area">
+        <div id="input-val">0</div>
+        <div class="toggles">
+            <button class="toggle-btn active" id="btn-cm" onclick="setOut('cm')">CM</button>
+            <button class="toggle-btn" id="btn-mm" onclick="setOut('mm')">MM</button>
+            <button class="toggle-btn" id="btn-m" onclick="setOut('m')">M</button>
+            <button class="toggle-btn" id="btn-in" onclick="setOut('in')">IN</button>
+        </div>
+    </div>
+
+    <div id="keypad">
+        <button class="key util" onclick="clearAll()">C</button>
+        <button class="key util" onclick="addText('\'')">Ft</button>
+        <button class="key util" onclick="addText('&quot;')">In</button>
+        <button class="key op" onclick="addText('/')">÷</button>
+
+        <button class="key" onclick="addText('7')">7</button>
+        <button class="key" onclick="addText('8')">8</button>
+        <button class="key" onclick="addText('9')">9</button>
+        <button class="key op" onclick="addText('*')">×</button>
+
+        <button class="key" onclick="addText('4')">4</button>
+        <button class="key" onclick="addText('5')">5</button>
+        <button class="key" onclick="addText('6')">6</button>
+        <button class="key op" onclick="addText('-')">-</button>
+
+        <button class="key" onclick="addText('1')">1</button>
+        <button class="key" onclick="addText('2')">2</button>
+        <button class="key" onclick="addText('3')">3</button>
+        <button class="key op" onclick="addText('+')">+</button>
+
+        <button class="key" style="grid-column: span 2" onclick="addText('0')">0</button>
+        <button class="key" onclick="addText('.')">.</button>
+        <button class="key op" onclick="calculate()">=</button>
+    </div>
+
+    <script>
+        let rawInput = "";
+        let outputUnit = "cm";
+
+        const displayInput = document.getElementById("input-val");
+        const displayResult = document.getElementById("result-val");
+        const labelResult = document.getElementById("result-unit");
+
+        // 1. Handling Button Clicks
+        function addText(char) {
+            // Prevent multiple decimals or operators in a row if needed, 
+            // but for simplicity we allow free typing.
+            if(rawInput === "0" && !isNaN(char)) rawInput = "";
+            
+            // UI spacing for operators
+            let uiChar = char;
+            if (char === '"') uiChar = '" '; // Add space after inches
+            if (char === "'") uiChar = "' "; // Add space after feet
+
+            rawInput += char;
+            renderInput();
+            calculate(); // Live convert as you type
+        }
+
+        function clearAll() {
+            rawInput = "0";
+            renderInput();
+            displayResult.innerText = "0";
+        }
+
+        function renderInput() {
+            // Make input look nice (replace * with ×)
+            let pretty = rawInput.replace(/\*/g, '×').replace(/\//g, '÷');
+            displayInput.innerText = pretty;
+        }
+
+        function setOut(unit) {
+            outputUnit = unit;
+            
+            // Update Toggle Button Styles
+            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${unit}`).classList.add('active');
+            
+            labelResult.innerText = unit.toUpperCase();
+            calculate(); // Re-calc immediately
+        }
+
+        // 2. The Math Engine
+        function calculate() {
+            try {
+                // STEP A: Clean the input for evaluation
+                // We need to turn 5' 4" into math: (5*12) + 4
+                
+                let mathStr = rawInput;
+
+                // Handle Feet (') -> Replace with *12 +
+                // Logic: Look for number followed by '
+                mathStr = mathStr.replace(/(\d+(\.\d+)?)'/g, "($1*12)+");
+
+                // Handle Inches (") -> Just remove the quote, it's the default unit
+                mathStr = mathStr.replace(/"/g, "");
+
+                // Handle Space between whole and fraction (e.g. "5 1/2" -> "5+1/2")
+                // Regex: Digit, Space, Digit -> Digit + "+" + Digit
+                mathStr = mathStr.replace(/(\d)\s+(\d)/g, "$1+$2");
+
+                // STEP B: Evaluate the math (Safe-ish eval)
+                // This gives us the value in INCHES (our base logic)
+                // If the string ends in an operator, slice it off to prevent crash
+                if("+-*/".includes(mathStr.slice(-1))) mathStr = mathStr.slice(0, -1);
+                
+                // Native JS evaluator
+                let inches = eval(mathStr); 
+
+                // STEP C: Convert Inches to Target
+                let result = 0;
+                switch(outputUnit) {
+                    case 'cm': result = inches * 2.54; break;
+                    case 'mm': result = inches * 25.4; break;
+                    case 'm':  result = inches * 0.0254; break;
+                    case 'in': result = inches; break;
+                }
+
+                // formatting
+                if(isNaN(result) || !isFinite(result)) {
+                    // Do nothing while typing invalid math
+                } else {
+                    // Limit decimals nicely (2 decimal places max, remove trailing zeros)
+                    displayResult.innerText = parseFloat(result.toFixed(3));
+                }
+
+            } catch (e) {
+                // Console.log(e); // Silent fail while user is typing incomplete formulas
+            }
+        }
+    </script>
+</body>
+</html>
