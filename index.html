@@ -3,158 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Precision Converter</title>
+    
     <link rel="manifest" href="manifest.json">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<link rel="apple-touch-icon" href="icon.png">
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <title>Multi-Unit Converter</title>
     <style>
+        /* --- 1. MINIMALIST OLED STYLING --- */
         :root {
-            --bg: #000;
-            --text: #FFF;
-            --dim: #444;
-            --key: #111;
+            --bg-color: #000000;
+            --text-primary: #FFFFFF;
+            --text-secondary: #666666;
+            --accent: #FF9500; 
+            --key-bg: #1C1C1C;
+            --key-active: #333333;
+            --border-color: #222;
         }
+
         body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: -apple-system, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             margin: 0;
-            height: 100vh;
             display: flex;
             flex-direction: column;
+            height: 100vh;
             overflow: hidden;
         }
-        #display {
+
+        /* --- 2. LAYOUT --- */
+        
+        /* Top: Results List */
+        #results-list {
             flex: 2;
             display: flex;
             flex-direction: column;
-            justify-content: flex-end;
-            padding: 30px;
-            text-align: right;
-        }
-        #result { font-size: 80px; font-weight: 200; }
-        #unit-label { font-size: 14px; color: var(--dim); letter-spacing: 3px; text-transform: uppercase; margin-top: 10px;}
-        
-        #input-preview {
-            padding: 10px 30px;
-            font-size: 24px;
-            color: var(--dim);
-            text-align: right;
-            border-bottom: 1px solid #222;
+            padding: 20px;
+            overflow-y: auto; /* Allow scroll if list is long */
+            justify-content: flex-end; /* Keep items at bottom of list area */
         }
 
+        .result-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #111;
+        }
+
+        .res-value { font-size: 32px; font-weight: 300; }
+        .res-unit { font-size: 14px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px;}
+
+        /* Middle: Active Input */
+        #input-area {
+            flex: 0 0 80px; /* Fixed height */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: flex-end;
+            padding: 0 20px;
+            background-color: #0a0a0a;
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #input-label { font-size: 12px; color: var(--accent); margin-bottom: 4px; }
+        #input-val { font-size: 36px; color: #FFF; }
+        
+        /* Bottom: Keypad Grid */
         #keypad {
             flex: 3;
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            background: #000;
+            grid-template-rows: repeat(5, 1fr);
             gap: 1px;
+            background-color: #000;
         }
-        button {
-            background: var(--key);
+
+        button.key {
+            background-color: var(--key-bg);
             border: none;
             color: #FFF;
             font-size: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            user-select: none; 
             -webkit-tap-highlight-color: transparent;
         }
-        button:active { background: #222; }
-        .op { color: #FF9500; font-size: 30px; }
-        .space-key { font-size: 14px; color: #888; letter-spacing: 1px; }
+        
+        button.key:active { background-color: var(--key-active); }
+        button.op { color: var(--accent); font-size: 28px; }
+        button.util { color: #BBB; }
+        
     </style>
 </head>
 <body>
 
-    <div id="display">
-        <div id="result">0</div>
-        <div id="unit-label">Centimeters</div>
+    <div id="results-list">
+        <div class="result-row">
+            <span class="res-value" id="val-mm">0</span>
+            <span class="res-unit">mm</span>
+        </div>
+        <div class="result-row">
+            <span class="res-value" id="val-cm">0</span>
+            <span class="res-unit">cm</span>
+        </div>
+        <div class="result-row">
+            <span class="res-value" id="val-m">0</span>
+            <span class="res-unit">m</span>
+        </div>
+        <div class="result-row">
+            <span class="res-value" id="val-in">0</span>
+            <span class="res-unit">inches</span>
+        </div>
+        <div class="result-row">
+            <span class="res-value" id="val-ft">0</span>
+            <span class="res-unit">feet</span>
+        </div>
     </div>
 
-    <div id="input-preview">0</div>
+    <div id="input-area">
+        <div id="input-label">INPUT</div>
+        <div id="input-val">0</div>
+    </div>
 
     <div id="keypad">
-        <button onclick="clearAll()">C</button>
-        <button class="space-key" onclick="addText(' ')">SPACE (FT-IN)</button>
-        <button onclick="setOut('in')">IN</button>
-        <button class="op" onclick="addText('/')">÷</button>
+        <button class="key util" onclick="clearAll()">C</button>
+        <button class="key util" onclick="addText('\'')">Ft</button>
+        <button class="key util" onclick="addText('&quot;')">In</button>
+        <button class="key op" onclick="addText('/')">÷</button>
 
-        <button onclick="addText('7')">7</button>
-        <button onclick="addText('8')">8</button>
-        <button onclick="addText('9')">9</button>
-        <button class="op" onclick="addText('*')">×</button>
+        <button class="key" onclick="addText('7')">7</button>
+        <button class="key" onclick="addText('8')">8</button>
+        <button class="key" onclick="addText('9')">9</button>
+        <button class="key op" onclick="addText('*')">×</button>
 
-        <button onclick="addText('4')">4</button>
-        <button onclick="addText('5')">5</button>
-        <button onclick="addText('6')">6</button>
-        <button class="op" onclick="addText('-')">-</button>
+        <button class="key" onclick="addText('4')">4</button>
+        <button class="key" onclick="addText('5')">5</button>
+        <button class="key" onclick="addText('6')">6</button>
+        <button class="key op" onclick="addText('-')">-</button>
 
-        <button onclick="addText('1')">1</button>
-        <button onclick="addText('2')">2</button>
-        <button onclick="addText('3')">3</button>
-        <button class="op" onclick="addText('+')">+</button>
+        <button class="key" onclick="addText('1')">1</button>
+        <button class="key" onclick="addText('2')">2</button>
+        <button class="key" onclick="addText('3')">3</button>
+        <button class="key op" onclick="addText('+')">+</button>
 
-        <button onclick="setOut('cm')">CM</button>
-        <button onclick="addText('0')">0</button>
-        <button onclick="addText('.')">.</button>
-        <button class="op" onclick="calculate()">=</button>
+        <button class="key" style="grid-column: span 2" onclick="addText('0')">0</button>
+        <button class="key" onclick="addText('.')">.</button>
+        <button class="key op" onclick="calculate()">=</button>
     </div>
 
     <script>
-        let input = "";
-        let mode = "cm";
+        let rawInput = "0";
 
-        function addText(val) {
-            input += val;
-            render();
+        const displayInput = document.getElementById("input-val");
+        
+        // Output Elements
+        const outMM = document.getElementById("val-mm");
+        const outCM = document.getElementById("val-cm");
+        const outM  = document.getElementById("val-m");
+        const outIN = document.getElementById("val-in");
+        const outFT = document.getElementById("val-ft");
+
+        function addText(char) {
+            if(rawInput === "0" && !isNaN(char)) rawInput = "";
+            
+            let uiChar = char;
+            if (char === '"') uiChar = '" '; 
+            if (char === "'") uiChar = "' "; 
+
+            rawInput += char;
+            renderInput();
+            calculate(); 
         }
 
         function clearAll() {
-            input = "";
-            render();
+            rawInput = "0";
+            renderInput();
+            resetResults();
         }
 
-        function setOut(m) {
-            mode = m;
-            document.getElementById('unit-label').innerText = m === 'cm' ? 'Centimeters' : 'Inches';
-            render();
+        function renderInput() {
+            let pretty = rawInput.replace(/\*/g, '×').replace(/\//g, '÷');
+            displayInput.innerText = pretty;
         }
 
-        function render() {
-            document.getElementById('input-preview').innerText = input || "0";
-            calculate();
+        function resetResults() {
+            outMM.innerText = "0";
+            outCM.innerText = "0";
+            outM.innerText = "0";
+            outIN.innerText = "0";
+            outFT.innerText = "0";
         }
 
         function calculate() {
             try {
-                let tempInput = input.trim();
-                if (!tempInput) {
-                    document.getElementById('result').innerText = "0";
-                    return;
-                }
+                // 1. Prepare String for Math
+                // Convert 5' 4" -> (5*12) + 4
+                let mathStr = rawInput;
+                mathStr = mathStr.replace(/(\d+(\.\d+)?)'/g, "($1*12)+");
+                mathStr = mathStr.replace(/"/g, "");
+                mathStr = mathStr.replace(/(\d)\s+(\d)/g, "$1+$2");
 
-                // --- THE ARCHITECT'S LOGIC ---
-                // If there is a space, e.g., "5 4", the first part is Feet, second is Inches.
-                let parts = tempInput.split(" ");
-                let totalInches = 0;
-
-                if (parts.length === 1) {
-                    // Just inches or a calculation
-                    totalInches = eval(parts[0]);
-                } else {
-                    // "5 4 1/2" -> 5 is feet, "4 1/2" is inches.
-                    let feet = parseFloat(eval(parts[0])) * 12;
-                    // Join the rest back as inches calculation (e.g. 4 + 1/2)
-                    let inchPart = parts.slice(1).join("+");
-                    let inches = eval(inchPart);
-                    totalInches = feet + inches;
-                }
-
-                let final = mode === 'cm' ? totalInches * 2.54 : totalInches;
+                // Remove trailing operators to avoid crash
+                if("+-*/".includes(mathStr.slice(-1))) mathStr = mathStr.slice(0, -1);
                 
-                if(!isNaN(final)) {
-                    document.getElementById('result').innerText = parseFloat(final.toFixed(3));
-                }
-            } catch (e) { /* Silent fail for partial typing */ }
+                // 2. Eval to get Base Inches
+                let baseInches = eval(mathStr); 
+
+                if(isNaN(baseInches) || !isFinite(baseInches)) return;
+
+                // 3. Convert and Update All Rows
+                updateRow(outMM, baseInches * 25.4);
+                updateRow(outCM, baseInches * 2.54);
+                updateRow(outM,  baseInches * 0.0254);
+                updateRow(outIN, baseInches);
+                updateRow(outFT, baseInches / 12);
+
+            } catch (e) {
+                // incomplete math, do nothing
+            }
+        }
+
+        function updateRow(element, value) {
+            // Check if it's a whole number or needs decimals
+            // Max 3 decimals for cleanliness
+            let formatted = parseFloat(value.toFixed(4));
+            element.innerText = formatted;
         }
     </script>
 </body>
